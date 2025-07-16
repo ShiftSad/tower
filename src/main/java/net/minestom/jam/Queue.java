@@ -36,7 +36,7 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Pa
     /**
      * The maximum size of queues before a game starts.
      */
-    public static final int MAX_SIZE = 8;
+    public static final int MAX_SIZE = 2;
 
     /**
      * The number of milliseconds after which invites expire.

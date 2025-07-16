@@ -1,5 +1,13 @@
 package net.minestom.jam;
 
+import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.collision.shapes.ConeCollisionShape;
+import com.jme3.bullet.collision.shapes.CylinderCollisionShape;
+import com.jme3.bullet.collision.shapes.PlaneCollisionShape;
+import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.math.Plane;
+import com.jme3.math.Vector3f;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -21,17 +29,18 @@ import java.util.function.Function;
 
 public class Game implements PacketGroupingAudience {
 
-    /**
-     * The spawn point in the instance. Make sure to change this when changing the world!
-     */
-    public static final Pos SPAWN_POINT = new Pos(0.5, 65, 0.5, 0, 0);
+    private static final LinkedList<Pos> spawnPoints = new LinkedList<>(Arrays.asList(
+            new Pos(15.5, 5, -74.5, 180, 0),
+            new Pos(-28.5, 5, -119.5, -90, 0),
+            new Pos(-11.5, 5, -159.5, 0, 0),
+            new Pos(43.5, 5, -119.5, 90, 0)
+    ));
 
     /**
      * The game that a player is in.
      */
     public static final Tag<Game> GAME = Tag.Transient("Game");
-
-    private static final @NotNull Set<Game> GAMES = new HashSet<>();
+    public static final @NotNull Set<Game> GAMES = new HashSet<>();
 
     private static InstanceContainer createGameInstance() {
         InstanceContainer instance = MinecraftServer.getInstanceManager().createInstanceContainer(
@@ -47,18 +56,32 @@ public class Game implements PacketGroupingAudience {
     private final InstanceContainer instance;
     private final List<Player> players = new ArrayList<>();
     private final AtomicBoolean ending = new AtomicBoolean(false);
+    private final MinecraftPhysics minecraftPhysics;
+
+    private long lastUpdate = System.currentTimeMillis();
 
     public Game(@NotNull Set<UUID> players) {
         this.instance = createGameInstance();
 
-        for (UUID uuid : players) {
-            Player player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(uuid);
+        for (int i = 0; i < players.size(); i++) {
+            Player player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(players.toArray(new UUID[0])[i]);
             if (player == null) continue;
 
             this.players.add(player);
             player.setTag(GAME, this);
 
-            player.setInstance(instance, SPAWN_POINT);
+            player.setInstance(instance, spawnPoints.get(i % spawnPoints.size()));
+        }
+
+        minecraftPhysics = new MinecraftPhysics(instance);
+        // Add the physics objects of each platform
+        for (Pos spawnPoint : spawnPoints) {
+            var shape = new CylinderCollisionShape(
+                    new Vector3f(3, 1, 3)
+            );
+            var platform = new PhysicsRigidBody(shape, PhysicsRigidBody.massForStatic);
+            platform.setPhysicsLocation(new Vector3f((float) spawnPoint.x(), (float) spawnPoint.y() - 1f, (float) spawnPoint.z()));
+            minecraftPhysics.getPhysicsSpace().add(platform);
         }
 
         GAMES.add(this);
@@ -85,6 +108,14 @@ public class Game implements PacketGroupingAudience {
         if (players.size() == 1) {
             onGameEnd();
         }
+    }
+
+    /**
+     * Method called every tick to update the game state.
+     */
+    public void update() {
+        players.forEach(player -> player.sendMessage("Updated..."));
+        minecraftPhysics.update(System.currentTimeMillis() - lastUpdate);
     }
 
     private static final Function<String, Component> PLAYER_HAS_LEFT = username -> Component.textOfChildren(

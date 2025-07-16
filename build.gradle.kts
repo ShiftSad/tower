@@ -16,6 +16,10 @@ repositories {
 
 dependencies {
     implementation("net.minestom:minestom:2025.07.11-1.21.7")
+    implementation("com.github.stephengold:Libbulletjme-Windows64:22.0.1")
+    runtimeOnly("com.github.stephengold:Libbulletjme-Linux64:22.0.1:SpDebug")
+    runtimeOnly("com.github.stephengold:Libbulletjme-Windows64:22.0.1:SpDebug")
+    implementation("io.github.electrostat-lab:snaploader:1.0.0-stable")
 }
 
 tasks.withType<JavaCompile> {
