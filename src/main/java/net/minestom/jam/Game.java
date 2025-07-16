@@ -1,10 +1,7 @@
 package net.minestom.jam;
 
 import com.jme3.bullet.PhysicsSpace;
-import com.jme3.bullet.collision.shapes.CollisionShape;
-import com.jme3.bullet.collision.shapes.ConeCollisionShape;
-import com.jme3.bullet.collision.shapes.CylinderCollisionShape;
-import com.jme3.bullet.collision.shapes.PlaneCollisionShape;
+import com.jme3.bullet.collision.shapes.*;
 import com.jme3.bullet.objects.PhysicsRigidBody;
 import com.jme3.math.Plane;
 import com.jme3.math.Vector3f;
@@ -12,12 +9,16 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.minestom.jam.instance.Lobby;
+import net.minestom.jam.objects.BlockRigidBody;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.adventure.audience.PacketGroupingAudience;
 import net.minestom.server.coordinate.Pos;
+import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.Player;
+import net.minestom.server.event.player.PlayerStartSneakingEvent;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.anvil.AnvilLoader;
+import net.minestom.server.instance.block.Block;
 import net.minestom.server.tag.Tag;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -58,7 +59,7 @@ public class Game implements PacketGroupingAudience {
     private final AtomicBoolean ending = new AtomicBoolean(false);
     private final MinecraftPhysics minecraftPhysics;
 
-    private long lastUpdate = System.currentTimeMillis();
+    private long lastUpdate = System.nanoTime();
 
     public Game(@NotNull Set<UUID> players) {
         this.instance = createGameInstance();
@@ -76,13 +77,25 @@ public class Game implements PacketGroupingAudience {
         minecraftPhysics = new MinecraftPhysics(instance);
         // Add the physics objects of each platform
         for (Pos spawnPoint : spawnPoints) {
-            var shape = new CylinderCollisionShape(
-                    new Vector3f(3, 1, 3)
-            );
+            var shape = new BoxCollisionShape(new Vector3f(3f, 0.005f, 3f));
             var platform = new PhysicsRigidBody(shape, PhysicsRigidBody.massForStatic);
             platform.setPhysicsLocation(new Vector3f((float) spawnPoint.x(), (float) spawnPoint.y() - 1f, (float) spawnPoint.z()));
             minecraftPhysics.getPhysicsSpace().add(platform);
         }
+
+        instance.eventNode().addListener(PlayerStartSneakingEvent.class, event -> {
+            var block = new BlockRigidBody(
+                    minecraftPhysics,
+                    new Vector3f((float) event.getPlayer().getPosition().x(), (float) event.getPlayer().getPosition().y() - 1f, (float) event.getPlayer().getPosition().z()),
+                    new Vec(0.5, 0.5, 0.5),
+                    1.0f,
+                    true,
+                    Block.DIAMOND_BLOCK
+            );
+            block.setInstance();
+            block.setAlwaysActive(true);
+            minecraftPhysics.addObject(block);
+        });
 
         GAMES.add(this);
     }
@@ -114,8 +127,11 @@ public class Game implements PacketGroupingAudience {
      * Method called every tick to update the game state.
      */
     public void update() {
-        players.forEach(player -> player.sendMessage("Updated..."));
-        minecraftPhysics.update(System.currentTimeMillis() - lastUpdate);
+        long diff = System.nanoTime() - lastUpdate;
+        float deltaTime = diff / 1_000_000_000f;
+
+        lastUpdate = System.nanoTime();
+        minecraftPhysics.update(deltaTime);
     }
 
     private static final Function<String, Component> PLAYER_HAS_LEFT = username -> Component.textOfChildren(

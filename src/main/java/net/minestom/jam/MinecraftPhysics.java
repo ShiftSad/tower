@@ -2,18 +2,13 @@ package net.minestom.jam;
 
 import com.jme3.bullet.NativePhysicsObject;
 import com.jme3.bullet.PhysicsSpace;
-import com.jme3.bullet.collision.shapes.CollisionShape;
-import com.jme3.bullet.collision.shapes.PlaneCollisionShape;
 import com.jme3.bullet.objects.PhysicsRigidBody;
-import com.jme3.math.Plane;
 import com.jme3.math.Vector3f;
 import net.minestom.jam.objects.MinecraftPhysicsObject;
 import net.minestom.server.instance.Instance;
 import net.minestom.server.tag.Tag;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -36,18 +31,18 @@ public class MinecraftPhysics {
 
     public MinecraftPhysics(Instance instance) {
         this.instance = instance;
+        physicsSpace = new PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT);
 
-        instance.scheduleNextTick((a) -> {
-            physicsSpace = new PhysicsSpace(PhysicsSpace.BroadphaseType.DBVT);
-
-            // Default: -9.81f
-            // Minecraft: -31.36f
-            physicsSpace.setGravity(new Vector3f(0, -17f, 0));
-        });
+        // Default: -9.81f
+        // Minecraft: -31.36f
+        physicsSpace.setGravity(new Vector3f(0, -17f, 0));
     }
 
     public void update(float delta) {
-        if (physicsSpace == null) return;
+        if (physicsSpace == null) {
+            System.out.println("PhysicsSpace is null!");
+            return;
+        }
 
         physicsSpace.update(delta);
 
@@ -55,10 +50,10 @@ public class MinecraftPhysics {
             object.update();
 
             // If bellow kill height, destroy the object
-            if (object.getCollisionObject().getPhysicsLocation(null).y < KILL_HEIGHT) {
-                object.destroy();
-                removeObject(object);
-            }
+//            if (object.getCollisionObject().getPhysicsLocation(null).y < KILL_HEIGHT) {
+//                object.destroy();
+//                removeObject(object);
+//            }
         }
     }
 

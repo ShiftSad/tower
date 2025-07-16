@@ -1,41 +1,32 @@
 package net.minestom.jam;
 
-import electrostatic4j.snaploader.LibraryInfo;
-import electrostatic4j.snaploader.LoadingCriterion;
-import electrostatic4j.snaploader.NativeBinaryLoader;
-import electrostatic4j.snaploader.filesystem.DirectoryPath;
-import electrostatic4j.snaploader.platform.NativeDynamicLibrary;
-import electrostatic4j.snaploader.platform.util.PlatformPredicate;
 import net.minestom.jam.instance.BlockHandlers;
 import net.minestom.jam.instance.Lobby;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.event.player.PlayerDisconnectEvent;
+import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.extras.velocity.VelocityProxy;
 import net.minestom.server.timer.ExecutionType;
 import net.minestom.server.timer.TaskSchedule;
 
+import java.io.File;
+
 public class Main {
     public static void main(String[] args) throws Exception {
-        LibraryInfo info = new LibraryInfo(
-                new DirectoryPath("linux/x86-64/com/github/stephengold"),
-                "bulletjme", DirectoryPath.USER_DIR);
-        NativeBinaryLoader loader = new NativeBinaryLoader(info);
-        NativeDynamicLibrary[] libraries = new NativeDynamicLibrary[]{
-//                new NativeDynamicLibrary("native/linux/arm64", PlatformPredicate.LINUX_ARM_64),
-//                new NativeDynamicLibrary("native/linux/arm32", PlatformPredicate.LINUX_ARM_32),
-                new NativeDynamicLibrary("native/linux/x86_64", PlatformPredicate.LINUX_X86_64),
-//                new NativeDynamicLibrary("native/osx/arm64", PlatformPredicate.MACOS_ARM_64),
-//                new NativeDynamicLibrary("native/osx/x86_64", PlatformPredicate.MACOS_X86_64),
-                new NativeDynamicLibrary("native/windows/x86_64", PlatformPredicate.WIN_X86_64)
-        };
-        loader.registerNativeLibraries(libraries).initPlatformLibrary();
-        loader.loadLibrary(LoadingCriterion.INCREMENTAL_LOADING);
+        // Load native libraries
+        String osName = System.getProperty("os.name").toLowerCase();
+        String osArch = System.getProperty("os.arch");
+
+        if (osName.contains("linux") && (osArch.equals("amd64") || osArch.equals("x86_64"))) System.load(new File("./libs/natives/bulletjme.dll").getAbsolutePath());
+        else if (osName.contains("windows")) System.load(new java.io.File("./libs/natives/bulletjme.dll").getAbsolutePath());
+        else throw new UnsupportedOperationException("Unsupported OS: " + osName);
 
         System.setProperty("minestom.tps", "60");
 
         MinecraftServer minecraftServer = MinecraftServer.init();
+        MojangAuth.init();
 
         String secret = System.getenv("VELOCITY_SECRET");
         if (secret != null) {
@@ -65,7 +56,6 @@ public class Main {
         });
 
         MinecraftServer.getSchedulerManager().buildTask(() -> Game.GAMES.forEach(Game::update))
-                .executionType(ExecutionType.TICK_END)
                 .repeat(TaskSchedule.tick(1))
                 .schedule();
 

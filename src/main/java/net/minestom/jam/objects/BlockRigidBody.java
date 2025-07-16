@@ -10,6 +10,7 @@ import net.minestom.server.entity.EntityType;
 import net.minestom.server.entity.metadata.display.ItemDisplayMeta;
 import net.minestom.server.instance.block.Block;
 import net.minestom.server.item.ItemStack;
+import net.minestom.server.item.Material;
 import org.jetbrains.annotations.NotNull;
 
 public class BlockRigidBody extends MinecraftPhysicsObject {
@@ -50,7 +51,7 @@ public class BlockRigidBody extends MinecraftPhysicsObject {
         entity.editEntityMeta(ItemDisplayMeta.class, meta -> {
             meta.setWidth(2);
             meta.setHeight(2);
-            meta.setItemStack(ItemStack.of(block.registry().material()));
+            meta.setItemStack(ItemStack.of(Material.DIAMOND_BLOCK));
             meta.setScale(getSize().mul(2));
         });
 

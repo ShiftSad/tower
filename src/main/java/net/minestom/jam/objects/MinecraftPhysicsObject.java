@@ -86,8 +86,14 @@ public abstract class MinecraftPhysicsObject {
     }
 
     public void update() {
-        if (entity == null) return;
-        if (!entity.isActive()) return;
+        if (entity == null) {
+            System.out.println("entity é null");
+            return;
+        }
+        if (!entity.isActive()) {
+            System.out.println("entity não está ativa");
+            return;
+        }
         if (alwaysActive) collisionObject.activate(true);
 
         entity.editEntityMeta(AbstractDisplayMeta.class, meta -> {

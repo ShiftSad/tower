@@ -46,7 +46,7 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Pa
     /**
      * The number of seconds it takes for a game to start after a queue is full.
      */
-    public static final int GAME_START_DELAY = 3;
+    public static final int GAME_START_DELAY = 1;
 
     /**
      * The queue system consists of two types of queues: public queues and private queues.
@@ -75,11 +75,8 @@ public record Queue(@NotNull Set<UUID> players, boolean isPrivate) implements Pa
 
             Queue queue = getQueue(uuid);
 
-            if (success) {
-                queue.sendMessage(PLAYER_JOINED_QUEUE.apply(player.getUsername()).append(queue.memberCount()));
-            } else {
-                player.sendMessage(ALREADY_QUEUED.append(queue.memberCount()));
-            }
+            if (success) queue.sendMessage(PLAYER_JOINED_QUEUE.apply(player.getUsername()).append(queue.memberCount()));
+            else player.sendMessage(ALREADY_QUEUED.append(queue.memberCount()));
         }
 
         public boolean joinPublicQueue(@NotNull UUID uuid) {
