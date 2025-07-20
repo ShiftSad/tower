@@ -10,10 +10,13 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.minestom.jam.instance.Lobby;
 import net.minestom.jam.objects.BlockRigidBody;
+import net.minestom.jam.objects.MinecraftPhysicsObject;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.adventure.audience.PacketGroupingAudience;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
+import net.minestom.server.entity.Entity;
+import net.minestom.server.entity.GameMode;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.player.PlayerStartSneakingEvent;
 import net.minestom.server.instance.InstanceContainer;
@@ -58,8 +61,10 @@ public class Game implements PacketGroupingAudience {
     private final List<Player> players = new ArrayList<>();
     private final AtomicBoolean ending = new AtomicBoolean(false);
     private final MinecraftPhysics minecraftPhysics;
+    private final Map<MinecraftPhysicsObject, List<Entity>> activeShulkerObjects = new HashMap<>();
 
     private long lastUpdate = System.nanoTime();
+    private int ticks = 0;
 
     public Game(@NotNull Set<UUID> players) {
         this.instance = createGameInstance();
@@ -70,6 +75,7 @@ public class Game implements PacketGroupingAudience {
 
             this.players.add(player);
             player.setTag(GAME, this);
+            player.setGameMode(GameMode.CREATIVE);
 
             player.setInstance(instance, spawnPoints.get(i % spawnPoints.size()));
         }
@@ -95,6 +101,7 @@ public class Game implements PacketGroupingAudience {
             block.setInstance();
             block.setAlwaysActive(true);
             minecraftPhysics.addObject(block);
+
         });
 
         GAMES.add(this);
@@ -127,11 +134,54 @@ public class Game implements PacketGroupingAudience {
      * Method called every tick to update the game state.
      */
     public void update() {
+        ticks++;
+
+        HashMap<MinecraftPhysicsObject, Pos> lastObjectPositions = new HashMap<>();
+        for (MinecraftPhysicsObject object : minecraftPhysics.getObjects()) {
+            Vector3f position = object.getCollisionObject().getPhysicsLocation(new Vector3f());
+            lastObjectPositions.put(object, new Pos(position.x, position.y, position.z));
+        }
+
         long diff = System.nanoTime() - lastUpdate;
         float deltaTime = diff / 1_000_000_000f;
-
         lastUpdate = System.nanoTime();
         minecraftPhysics.update(deltaTime);
+
+        if (ticks % 20 != 0) return;
+
+        Set<MinecraftPhysicsObject> objectsToShowShulkers = new HashSet<>();
+        for (MinecraftPhysicsObject object : minecraftPhysics.getObjects()) {
+            if (object.getEntity() == null) continue;
+
+            Pos currentPos = object.getEntity().getPosition();
+            Pos lastPos = lastObjectPositions.get(object);
+
+            if (lastPos == null || currentPos.equals(lastPos)) continue;
+
+            boolean playerNearby = players.stream()
+                    .anyMatch(player -> player.getPosition().distanceSquared(currentPos) < 5 * 5);
+
+            if (playerNearby) {
+                objectsToShowShulkers.add(object);
+            }
+        }
+
+        // Remove shulkers for objects that no longer need them
+        activeShulkerObjects.entrySet().removeIf(entry -> {
+            if (!objectsToShowShulkers.contains(entry.getKey())) {
+                entry.getValue().forEach(Entity::remove);
+                return true; // Remove from the map
+            }
+            return false;
+        });
+
+        // Add shulkers for objects that should have them but don't yet
+        for (MinecraftPhysicsObject object : objectsToShowShulkers) {
+            if (!activeShulkerObjects.containsKey(object)) {
+                List<Entity> shulkerEntities = ShulkerHitboxes.generateAndSpawnShulkers(minecraftPhysics, object);
+                activeShulkerObjects.put(object, shulkerEntities);
+            }
+        }
     }
 
     private static final Function<String, Component> PLAYER_HAS_LEFT = username -> Component.textOfChildren(

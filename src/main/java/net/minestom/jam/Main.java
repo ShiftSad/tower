@@ -8,7 +8,6 @@ import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
 import net.minestom.server.event.player.PlayerDisconnectEvent;
 import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.extras.velocity.VelocityProxy;
-import net.minestom.server.timer.ExecutionType;
 import net.minestom.server.timer.TaskSchedule;
 
 import java.io.File;
