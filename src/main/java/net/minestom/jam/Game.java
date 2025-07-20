@@ -80,8 +80,12 @@ public class Game implements PacketGroupingAudience {
             var block = new BlockRigidBody(
                     minecraftPhysics,
                     event.getPlayer().getPosition().asVec(),
-                    new Vec(1, 1, 1),
-                    1.0f,
+                    new Vec(
+                            0.5 + Math.random() * 3.5,
+                            0.5 + Math.random() * 3.5,
+                            0.5 + Math.random() * 3.5
+                    ),
+                    0.5f + (float) (Math.random() * 3.5f),
                     true,
                     Block.DIAMOND_BLOCK
             );

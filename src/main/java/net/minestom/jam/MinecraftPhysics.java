@@ -71,15 +71,13 @@ public class MinecraftPhysics {
         objects.add(object);
 
         PxRigidDynamic rigidDynamic = object.getCollisionObject();
-        if (rigidDynamic != null) {
-            objectMap.put(rigidDynamic, object);
-            actorMap.put(rigidDynamic, object);
+        objectMap.put(rigidDynamic, object);
+        actorMap.put(rigidDynamic, object);
 
-            // Add the actor to the physics scene
-            physicsSpace.addActor(rigidDynamic);
+        // Add the actor to the physics scene
+        physicsSpace.addActor(rigidDynamic);
 
-            PhysicsXEnv.LOGGER.debug("Added physics object to scene: {}", object);
-        }
+        PhysicsXEnv.LOGGER.debug("Added physics object to scene: {}", object);
     }
 
     public void removeObject(MinecraftPhysicsObject object) {
