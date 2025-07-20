@@ -10,18 +10,9 @@ import net.minestom.server.extras.MojangAuth;
 import net.minestom.server.extras.velocity.VelocityProxy;
 import net.minestom.server.timer.TaskSchedule;
 
-import java.io.File;
-
 public class Main {
-    public static void main(String[] args) throws Exception {
-        // Load native libraries
-        String osName = System.getProperty("os.name").toLowerCase();
-        String osArch = System.getProperty("os.arch");
 
-        if (osName.contains("linux") && (osArch.equals("amd64") || osArch.equals("x86_64"))) System.load(new File("./libs/natives/bulletjme.dll").getAbsolutePath());
-        else if (osName.contains("windows")) System.load(new java.io.File("./libs/natives/bulletjme.dll").getAbsolutePath());
-        else throw new UnsupportedOperationException("Unsupported OS: " + osName);
-
+    public static void main(String[] args) {
         System.setProperty("minestom.tps", "60");
 
         MinecraftServer minecraftServer = MinecraftServer.init();

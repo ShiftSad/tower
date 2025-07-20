@@ -1,10 +1,5 @@
 package net.minestom.jam;
 
-import com.jme3.bullet.PhysicsSpace;
-import com.jme3.bullet.collision.shapes.*;
-import com.jme3.bullet.objects.PhysicsRigidBody;
-import com.jme3.math.Plane;
-import com.jme3.math.Vector3f;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -18,10 +13,12 @@ import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.GameMode;
 import net.minestom.server.entity.Player;
-import net.minestom.server.event.player.PlayerStartSneakingEvent;
+import net.minestom.server.event.player.PlayerChangeHeldSlotEvent;
+import net.minestom.server.event.player.PlayerCustomClickEvent;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.anvil.AnvilLoader;
 import net.minestom.server.instance.block.Block;
+import net.minestom.server.item.Material;
 import net.minestom.server.tag.Tag;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -61,13 +58,12 @@ public class Game implements PacketGroupingAudience {
     private final List<Player> players = new ArrayList<>();
     private final AtomicBoolean ending = new AtomicBoolean(false);
     private final MinecraftPhysics minecraftPhysics;
-    private final Map<MinecraftPhysicsObject, List<Entity>> activeShulkerObjects = new HashMap<>();
 
     private long lastUpdate = System.nanoTime();
-    private int ticks = 0;
 
     public Game(@NotNull Set<UUID> players) {
         this.instance = createGameInstance();
+        minecraftPhysics = new MinecraftPhysics(instance);
 
         for (int i = 0; i < players.size(); i++) {
             Player player = MinecraftServer.getConnectionManager().getOnlinePlayerByUuid(players.toArray(new UUID[0])[i]);
@@ -80,28 +76,17 @@ public class Game implements PacketGroupingAudience {
             player.setInstance(instance, spawnPoints.get(i % spawnPoints.size()));
         }
 
-        minecraftPhysics = new MinecraftPhysics(instance);
-        // Add the physics objects of each platform
-        for (Pos spawnPoint : spawnPoints) {
-            var shape = new BoxCollisionShape(new Vector3f(3f, 0.005f, 3f));
-            var platform = new PhysicsRigidBody(shape, PhysicsRigidBody.massForStatic);
-            platform.setPhysicsLocation(new Vector3f((float) spawnPoint.x(), (float) spawnPoint.y() - 1f, (float) spawnPoint.z()));
-            minecraftPhysics.getPhysicsSpace().add(platform);
-        }
-
-        instance.eventNode().addListener(PlayerStartSneakingEvent.class, event -> {
+        instance.eventNode().addListener(PlayerChangeHeldSlotEvent.class, event -> {
             var block = new BlockRigidBody(
                     minecraftPhysics,
-                    new Vector3f((float) event.getPlayer().getPosition().x(), (float) event.getPlayer().getPosition().y() - 1f, (float) event.getPlayer().getPosition().z()),
-                    new Vec(0.5, 0.5, 0.5),
+                    event.getPlayer().getPosition().asVec(),
+                    new Vec(1, 1, 1),
                     1.0f,
                     true,
                     Block.DIAMOND_BLOCK
             );
-            block.setInstance();
-            block.setAlwaysActive(true);
             minecraftPhysics.addObject(block);
-
+            block.setInstance();
         });
 
         GAMES.add(this);
@@ -134,54 +119,10 @@ public class Game implements PacketGroupingAudience {
      * Method called every tick to update the game state.
      */
     public void update() {
-        ticks++;
-
-        HashMap<MinecraftPhysicsObject, Pos> lastObjectPositions = new HashMap<>();
-        for (MinecraftPhysicsObject object : minecraftPhysics.getObjects()) {
-            Vector3f position = object.getCollisionObject().getPhysicsLocation(new Vector3f());
-            lastObjectPositions.put(object, new Pos(position.x, position.y, position.z));
-        }
-
         long diff = System.nanoTime() - lastUpdate;
         float deltaTime = diff / 1_000_000_000f;
         lastUpdate = System.nanoTime();
         minecraftPhysics.update(deltaTime);
-
-        if (ticks % 20 != 0) return;
-
-        Set<MinecraftPhysicsObject> objectsToShowShulkers = new HashSet<>();
-        for (MinecraftPhysicsObject object : minecraftPhysics.getObjects()) {
-            if (object.getEntity() == null) continue;
-
-            Pos currentPos = object.getEntity().getPosition();
-            Pos lastPos = lastObjectPositions.get(object);
-
-            if (lastPos == null || currentPos.equals(lastPos)) continue;
-
-            boolean playerNearby = players.stream()
-                    .anyMatch(player -> player.getPosition().distanceSquared(currentPos) < 5 * 5);
-
-            if (playerNearby) {
-                objectsToShowShulkers.add(object);
-            }
-        }
-
-        // Remove shulkers for objects that no longer need them
-        activeShulkerObjects.entrySet().removeIf(entry -> {
-            if (!objectsToShowShulkers.contains(entry.getKey())) {
-                entry.getValue().forEach(Entity::remove);
-                return true; // Remove from the map
-            }
-            return false;
-        });
-
-        // Add shulkers for objects that should have them but don't yet
-        for (MinecraftPhysicsObject object : objectsToShowShulkers) {
-            if (!activeShulkerObjects.containsKey(object)) {
-                List<Entity> shulkerEntities = ShulkerHitboxes.generateAndSpawnShulkers(minecraftPhysics, object);
-                activeShulkerObjects.put(object, shulkerEntities);
-            }
-        }
     }
 
     private static final Function<String, Component> PLAYER_HAS_LEFT = username -> Component.textOfChildren(
